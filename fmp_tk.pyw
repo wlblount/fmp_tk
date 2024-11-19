@@ -1,4 +1,4 @@
-# V 1.1.2  added fmp_earnSym() to the lineup 11/18/24
+# V 1.1.3  added fmp_earnDiv() to the lineup 11/19/24
 
 import tkinter as tk
 from tkinter import scrolledtext, ttk
@@ -92,7 +92,7 @@ def run_selected_function():
             df = fmp.fmp_earnSym(search_string)
             if not df.empty:
                 # Drop unnecessary columns and reformat DataFrame
-                df_modified = df.drop(columns=['symbol']).reset_index(drop=True)
+                df_modified = df.drop(columns=['symbol']).reset_index(drop=True)  #adjDividend	dividend	recordDate	paymentDate	declarationDate	trail	close	trailYield	curYield
                 df_modified.rename(columns={
                     'epsEstimated': 'epsEst',
                     'revenue' : 'rev (mil)',
@@ -100,6 +100,7 @@ def run_selected_function():
                     'fiscalDateEnding': 'fiscal',
                     'updatedFromDate': 'updated',
                 }, inplace=True)
+                
                 df_modified['rev (mil)'] = df_modified['rev (mil)'].div(1_000_000).round(0).fillna(0).apply(lambda x: f"{int(x):,}" if not pd.isna(x) else "N/A")
                 df_modified['revEst (mil)'] = df_modified['revEst (mil)'].div(1_000_000).round(0).fillna(0).apply(lambda x: f"{int(x):,}" if not pd.isna(x) else "N/A")
                 df_modified = df_modified[['date', 'time', 'eps', 'epsEst', 'rev (mil)', 'revEst (mil)', 'fiscal', 'updated']]
@@ -108,6 +109,27 @@ def run_selected_function():
             else:
                 output_text.insert(tk.END, "No search results found for the given term.")
 
+        elif selected_function == "Dividends":
+        # Call the function for company profile data
+            df = fmp.fmp_div(search_string).tail(10)
+            if not df.empty:
+                df_modified = df.drop(columns=['adjDividend'])
+                df_modified.index = pd.to_datetime(df_modified.index).strftime("%m-%d-%y")
+                # Drop unnecessary columns and reformat DataFrame    	dividend	recordDate	paymentDate	declarationDate	trail	close	trailYield	curYield
+                df_modified.rename(columns={
+                    'recordDate': 'recDate',
+                    'paymentDate' : 'payDate',
+                    'declarationDate': 'decDate',
+                    'trailYield': 'yieldttm',
+                    'curYield': 'yield',
+                }, inplace=True)
+                date_columns = ["recDate", 'payDate', "decDate"]
+                for col in date_columns:
+                    df_modified[col] = pd.to_datetime(df_modified[col]).dt.strftime("%m-%d-%y")
+                tabulated_result = tabulate(df_modified, headers='keys', tablefmt='fancy_grid', numalign='left', stralign='left')
+                output_text.insert(tk.END, tabulated_result)
+            else:
+                output_text.insert(tk.END, "No search results found for the given term.")
             # Update window options for Company Profile
             period_selector_label.pack_forget()
             period_selector.pack_forget()
@@ -130,7 +152,7 @@ root.geometry("900x700")
 function_selector_label = tk.Label(root, text="Select FMP Function:")
 function_selector_label.pack(pady=5)
 
-function_selector = ttk.Combobox(root, values=["Intraday Data", "Company Profile", "Search Data", "Earnings Dates"])
+function_selector = ttk.Combobox(root, values=["Intraday Data", "Company Profile", "Search Data", "Earnings Dates", "Dividends"])
 function_selector.pack(pady=5)
 function_selector.current(0)  # Set default selection
 
@@ -177,3 +199,4 @@ description_text.pack(pady=10)
 
 # Run the GUI event loop
 root.mainloop()
+
