@@ -1,4 +1,4 @@
-# V 1.1.1  Ensuring correct initialization of UI components 11/16/24
+# V 1.1.2  added fmp_earnSym() to the lineup 11/18/24
 
 import tkinter as tk
 from tkinter import scrolledtext, ttk
@@ -34,7 +34,7 @@ def run_selected_function():
                 # Format and display the data
                 df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float).round(3).applymap(lambda x: f"{x:.3f}")
                 df['volume'] = df['volume'].apply(lambda x: f"{int(x):,}").str.rjust(15)
-                tabulated_result = tabulate(df, headers='keys', tablefmt='pipe', numalign='right', stralign='left')
+                tabulated_result = tabulate(df, headers='keys', tablefmt='fancy_grid', numalign='left', stralign='left')
                 output_text.insert(tk.END, tabulated_result)
             else:
                 output_text.insert(tk.END, "No intraday data found for the given symbol.")
@@ -45,7 +45,7 @@ def run_selected_function():
             description_label.pack_forget()
             description_text.pack_forget()
             output_text.config(width=110, height=25)
-            root.geometry("900x600")
+            root.geometry("900x700")
 
         elif selected_function == "Company Profile":
             # Call the function for company profile data
@@ -53,7 +53,7 @@ def run_selected_function():
             if data:
                 # Format and display the data excluding 'description'
                 table_data = [(key, f"{value:,}" if key == 'mktCap' else value) for key, value in data.items() if key != 'description']
-                tabulated_result = tabulate(table_data, headers=['Field', 'Value'], tablefmt='pipe', numalign='right', stralign='left')
+                tabulated_result = tabulate(table_data, headers=['Field', 'Value'], tablefmt='fancy_grid', numalign='left', stralign='left')
                 output_text.insert(tk.END, tabulated_result)
                 
                 # Insert the description into the separate description text widget
@@ -74,7 +74,7 @@ def run_selected_function():
             # Call the function for general search data
             df = fmp.fmp_search(search_string)
             if not df.empty:
-                tabulated_result = tabulate(df, headers='keys', tablefmt='pipe', numalign='right', stralign='left')
+                tabulated_result = tabulate(df, headers='keys', tablefmt='fancy_grid', numalign='left', stralign='left')
                 output_text.insert(tk.END, tabulated_result)
             else:
                 output_text.insert(tk.END, "No search results found for the given term.")
@@ -85,7 +85,36 @@ def run_selected_function():
             description_label.pack_forget()
             description_text.pack_forget()
             output_text.config(width=100, height=20)
-            root.geometry("900x600")
+            root.geometry("900x700")
+
+        elif selected_function == "Earnings Dates":
+            # Call the function for company profile data
+            df = fmp.fmp_earnSym(search_string)
+            if not df.empty:
+                # Drop unnecessary columns and reformat DataFrame
+                df_modified = df.drop(columns=['symbol']).reset_index(drop=True)
+                df_modified.rename(columns={
+                    'epsEstimated': 'epsEst',
+                    'revenue' : 'rev (mil)',
+                    'revenueEstimated': 'revEst (mil)',
+                    'fiscalDateEnding': 'fiscal',
+                    'updatedFromDate': 'updated',
+                }, inplace=True)
+                df_modified['rev (mil)'] = df_modified['rev (mil)'].div(1_000_000).round(0).fillna(0).apply(lambda x: f"{int(x):,}" if not pd.isna(x) else "N/A")
+                df_modified['revEst (mil)'] = df_modified['revEst (mil)'].div(1_000_000).round(0).fillna(0).apply(lambda x: f"{int(x):,}" if not pd.isna(x) else "N/A")
+                df_modified = df_modified[['date', 'time', 'eps', 'epsEst', 'rev (mil)', 'revEst (mil)', 'fiscal', 'updated']]
+                tabulated_result = tabulate(df_modified, headers='keys', tablefmt='fancy_grid', numalign='left', stralign='left')
+                output_text.insert(tk.END, tabulated_result)
+            else:
+                output_text.insert(tk.END, "No search results found for the given term.")
+
+            # Update window options for Company Profile
+            period_selector_label.pack_forget()
+            period_selector.pack_forget()
+            description_label.pack_forget()  # Hide company description label
+            description_text.pack_forget()   # Hide company description text
+            output_text.config(width=110, height=15)
+            root.geometry("900x700")
 
     except Exception as e:
         # Handle errors
@@ -101,7 +130,7 @@ root.geometry("900x700")
 function_selector_label = tk.Label(root, text="Select FMP Function:")
 function_selector_label.pack(pady=5)
 
-function_selector = ttk.Combobox(root, values=["Intraday Data", "Company Profile", "Search Data"])
+function_selector = ttk.Combobox(root, values=["Intraday Data", "Company Profile", "Search Data", "Earnings Dates"])
 function_selector.pack(pady=5)
 function_selector.current(0)  # Set default selection
 
